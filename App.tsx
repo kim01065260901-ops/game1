@@ -38,7 +38,6 @@ const App: React.FC = () => {
 
   const currentLevelConfig = LEVEL_CONFIGS[currentLevel - 1];
 
-  // Sound Utility
   const playSound = (freq: number, dur: number, type: OscillatorType = 'sawtooth') => {
     if (!audioContext.current) audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     const osc = audioContext.current.createOscillator();
@@ -60,7 +59,6 @@ const App: React.FC = () => {
     if (saved) setHallOfFame(JSON.parse(saved));
   }, []);
 
-  // Timer Logic
   useEffect(() => {
     if (gameState === GameState.PLAYING) {
       timerInterval.current = window.setInterval(() => {
@@ -125,11 +123,11 @@ const App: React.FC = () => {
         }
         break;
       case ShapeType.BIRD:
-        interpolate({x:cx-sz, y:cy}, {x:cx-sz+40, y:cy-20}, 10); // Beak
-        interpolate({x:cx-sz+40, y:cy-20}, {x:cx, y:cy-sz}, 20); // Top
-        interpolate({x:cx, y:cy-sz}, {x:cx+sz, y:cy}, 20); // Back
-        interpolate({x:cx+sz, y:cy}, {x:cx, y:cy+sz}, 20); // Bottom
-        interpolate({x:cx, y:cy+sz}, {x:cx-sz, y:cy}, 20); // Breast
+        interpolate({x:cx-sz, y:cy}, {x:cx-sz+40, y:cy-20}, 10);
+        interpolate({x:cx-sz+40, y:cy-20}, {x:cx, y:cy-sz}, 20);
+        interpolate({x:cx, y:cy-sz}, {x:cx+sz, y:cy}, 20);
+        interpolate({x:cx+sz, y:cy}, {x:cx, y:cy+sz}, 20);
+        interpolate({x:cx, y:cy+sz}, {x:cx-sz, y:cy}, 20);
         break;
       case ShapeType.BUTTERFLY:
         for (let t = -Math.PI; t < Math.PI; t += 0.05) {
@@ -177,11 +175,9 @@ const App: React.FC = () => {
     ctx.beginPath(); ctx.arc(200, 200, 180, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = 'rgba(0,0,0,0.05)';
     for(let i=0; i<400; i++) { ctx.beginPath(); ctx.arc(Math.random()*400, Math.random()*400, 1, 0, Math.PI*2); ctx.fill(); }
-
     const pts = initShapeData(shape);
     pointsToCover.current = pts;
     coveredIndices.current = new Set();
-    
     ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
     pts.forEach(p => ctx.lineTo(p.x, p.y));
@@ -208,7 +204,6 @@ const App: React.FC = () => {
       const d = Math.sqrt((p.x-t.x)**2 + (p.y-t.y)**2);
       if (d < precision) { hit = true; coveredIndices.current.add(i); }
     });
-
     if (!hit) {
       setStress(prev => {
         const next = prev + currentLevelConfig.stressGain;
@@ -261,10 +256,36 @@ const App: React.FC = () => {
     return { x: (cx - rect.left) * (400 / rect.width), y: (cy - rect.top) * (400 / rect.height) };
   };
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // any button (left: 1, right: 2, etc.) is represented in bitmask 'buttons'
+    if (e.buttons > 0) {
+      isDrawing.current = true;
+      lastPoint.current = getPos(e);
+      checkCollision(getPos(e));
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    // Only carve if at least one button is held down
+    if (!isDrawing.current || e.buttons === 0) {
+      isDrawing.current = false;
+      return;
+    }
+    const p = getPos(e);
+    const ctx = canvasRef.current?.getContext('2d')!;
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(lastPoint.current!.x, lastPoint.current!.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+    checkCollision(p);
+    lastPoint.current = p;
+  };
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-4 font-sans select-none overflow-hidden">
-      
-      {/* Hall of Fame Background Element */}
+    <div className="min-h-screen bg-zinc-950 text-white flex flex-col items-center justify-center p-4 font-sans select-none overflow-hidden" onContextMenu={(e) => e.preventDefault()}>
       <div className="fixed top-0 left-0 w-full h-full opacity-5 pointer-events-none flex flex-wrap gap-10 p-10 justify-center">
         {Array.from({length:20}).map((_,i) => <div key={i} className="text-8xl font-black">달고나 게임</div>)}
       </div>
@@ -293,11 +314,9 @@ const App: React.FC = () => {
               )}
             </div>
           </div>
-          
           <div className="text-center mb-8 italic text-zinc-400 max-w-md">"{introTip}"</div>
-          
           <button 
-            onClick={() => handleLevelStart(1)}
+            onPointerDown={(e) => handleLevelStart(1)}
             className="px-16 py-5 bg-white text-zinc-950 text-xl font-black rounded-full hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)]"
           >
             게임 시작
@@ -307,7 +326,6 @@ const App: React.FC = () => {
 
       {gameState === GameState.PLAYING && (
         <div className="z-10 flex flex-col items-center w-full max-w-md">
-          {/* Timer & Level UI */}
           <div className="w-full flex justify-between items-end mb-4">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Level</span>
@@ -318,33 +336,26 @@ const App: React.FC = () => {
               <span className={`text-4xl font-mono font-black ${timeLeft <= 3 ? 'text-red-600 animate-pulse' : 'text-pink-600'}`}>{timeLeft}s</span>
             </div>
           </div>
-
-          {/* Stress Bar */}
           <div className="w-full h-1 bg-zinc-900 rounded-full mb-6 overflow-hidden">
             <div className={`h-full transition-all duration-75 ${stress > 80 ? 'bg-red-600' : 'bg-pink-600'}`} style={{width: `${stress}%`}} />
           </div>
-
           <div className={`relative p-3 bg-zinc-900 rounded-[40px] shadow-2xl border-4 ${stress > 80 ? 'border-red-600/50 scale-105' : 'border-white/5'} transition-all`}>
-            <canvas
-              ref={canvasRef} width={400} height={400}
-              className="rounded-[32px] cursor-crosshair touch-none bg-zinc-800"
-              onMouseDown={(e)=>{isDrawing.current=true; lastPoint.current=getPos(e); checkCollision(getPos(e))}}
-              onMouseMove={(e)=>{
-                if(!isDrawing.current) return;
-                const p = getPos(e); const ctx = canvasRef.current?.getContext('2d')!;
-                ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=3; ctx.lineCap='round';
-                ctx.beginPath(); ctx.moveTo(lastPoint.current!.x, lastPoint.current!.y); ctx.lineTo(p.x, p.y); ctx.stroke();
-                checkCollision(p); lastPoint.current=p;
-              }}
-              onMouseUp={()=>isDrawing.current=false}
-              onMouseLeave={()=>isDrawing.current=false}
-              onTouchStart={(e)=>{isDrawing.current=true; lastPoint.current=getPos(e); checkCollision(getPos(e))}}
-              onTouchMove={(e)=>{
-                if(!isDrawing.current) return;
-                const p = getPos(e); checkCollision(p); lastPoint.current=p;
-              }}
-              onTouchEnd={()=>isDrawing.current=false}
+            <canvas ref={canvasRef} width={400} height={400} className="rounded-[32px] cursor-crosshair touch-none bg-zinc-800"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={() => isDrawing.current = false} 
+              onMouseLeave={() => isDrawing.current = false}
+              onTouchStart={(e) => { isDrawing.current = true; lastPoint.current = getPos(e); checkCollision(getPos(e)) }}
+              onTouchMove={(e) => { if (!isDrawing.current) return; const p = getPos(e); checkCollision(p); lastPoint.current = p; }}
+              onTouchEnd={() => isDrawing.current = false}
             />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+               {!isDrawing.current && (
+                 <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-widest animate-bounce">
+                   Hold Any Mouse Button to Carve
+                 </div>
+               )}
+            </div>
           </div>
           <p className="mt-6 text-zinc-500 text-xs font-bold uppercase tracking-[0.5em]">{currentLevelConfig.shape}</p>
         </div>
@@ -358,26 +369,20 @@ const App: React.FC = () => {
           <div className="p-8 bg-zinc-900/90 rounded-3xl border border-white/10 mb-8 min-h-[140px] flex flex-col items-center justify-center shadow-2xl">
             {isLoading ? <div className="animate-pulse text-pink-600 font-black">분석 중...</div> : <p className="text-lg text-zinc-300 italic">"{feedback}"</p>}
           </div>
-
           <div className="w-full space-y-4">
             {gameState === GameState.SUCCESS && (
-              <button onClick={()=>handleLevelStart(currentLevel+1)} className="w-full py-5 bg-white text-zinc-950 text-xl font-black rounded-2xl uppercase italic">Next Level</button>
+              <button onPointerDown={()=>handleLevelStart(currentLevel+1)} className="w-full py-5 bg-white text-zinc-950 text-xl font-black rounded-2xl uppercase italic">Next Level</button>
             )}
             {(gameState === GameState.FAILED || gameState === GameState.VICTORY) && (
               <div className="w-full flex flex-col space-y-4">
-                <input 
-                  type="text" value={playerName} onChange={e=>setPlayerName(e.target.value.slice(0,10))}
-                  placeholder="당신의 이름을 입력하십시오"
-                  className="w-full bg-zinc-800 border border-white/10 p-4 rounded-2xl text-center text-xl font-bold focus:outline-none focus:border-pink-600"
-                />
-                <button onClick={saveRanking} className="w-full py-5 bg-pink-600 text-white text-xl font-black rounded-2xl uppercase italic shadow-lg shadow-pink-600/20">명예의 전당 등록</button>
+                <input type="text" value={playerName} onChange={e=>setPlayerName(e.target.value.slice(0,10))} placeholder="당신의 이름을 입력하십시오" className="w-full bg-zinc-800 border border-white/10 p-4 rounded-2xl text-center text-xl font-bold focus:outline-none focus:border-pink-600"/>
+                <button onPointerDown={saveRanking} className="w-full py-5 bg-pink-600 text-white text-xl font-black rounded-2xl uppercase italic shadow-lg shadow-pink-600/20">명예의 전당 등록</button>
               </div>
             )}
-            <button onClick={() => setGameState(GameState.START)} className="text-zinc-600 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">Main Menu</button>
+            <button onPointerDown={() => setGameState(GameState.START)} className="text-zinc-600 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">Main Menu</button>
           </div>
         </div>
       )}
-
     </div>
   );
 };
