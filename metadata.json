@@ -1,7 +1,5 @@
 {
   "name": "달고나 게임",
-  "description": "A high-stakes Dalgona carving game inspired by traditional Korean street candy, featuring AI-powered feedback and intense survival gameplay.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "description": "High-stakes Dalgona carving survival game with AI feedback.",
+  "requestFramePermissions": []
 }

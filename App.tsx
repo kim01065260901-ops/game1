@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GameState, ShapeType, Point, LevelConfig, RankingRecord } from './types';
-import { getGameFeedback, getIntroTip } from './services/geminiService';
+import { GameState, ShapeType, Point, LevelConfig, RankingRecord } from './types.ts';
+import { getGameFeedback, getIntroTip } from './services/geminiService.ts';
 
 const LEVEL_CONFIGS: LevelConfig[] = [
   { level: 1, shape: ShapeType.CIRCLE, stressGain: 2, precision: 22, requiredCoverage: 0.6 },
@@ -39,18 +39,20 @@ const App: React.FC = () => {
   const currentLevelConfig = LEVEL_CONFIGS[currentLevel - 1];
 
   const playSound = (freq: number, dur: number, type: OscillatorType = 'sawtooth') => {
-    if (!audioContext.current) audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = audioContext.current.createOscillator();
-    const gain = audioContext.current.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, audioContext.current.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(10, audioContext.current.currentTime + dur);
-    gain.gain.setValueAtTime(0.05, audioContext.current.currentTime);
-    gain.gain.linearRampToValueAtTime(0, audioContext.current.currentTime + dur);
-    osc.connect(gain);
-    gain.connect(audioContext.current.destination);
-    osc.start();
-    osc.stop(audioContext.current.currentTime + dur);
+    try {
+      if (!audioContext.current) audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioContext.current.createOscillator();
+      const gain = audioContext.current.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioContext.current.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(10, audioContext.current.currentTime + dur);
+      gain.gain.setValueAtTime(0.05, audioContext.current.currentTime);
+      gain.gain.linearRampToValueAtTime(0, audioContext.current.currentTime + dur);
+      osc.connect(gain);
+      gain.connect(audioContext.current.destination);
+      osc.start();
+      osc.stop(audioContext.current.currentTime + dur);
+    } catch (e) { console.warn("Audio play failed", e); }
   };
 
   useEffect(() => {
@@ -257,7 +259,6 @@ const App: React.FC = () => {
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    // any button (left: 1, right: 2, etc.) is represented in bitmask 'buttons'
     if (e.buttons > 0) {
       isDrawing.current = true;
       lastPoint.current = getPos(e);
@@ -266,7 +267,6 @@ const App: React.FC = () => {
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    // Only carve if at least one button is held down
     if (!isDrawing.current || e.buttons === 0) {
       isDrawing.current = false;
       return;
@@ -291,7 +291,7 @@ const App: React.FC = () => {
       </div>
 
       {gameState === GameState.START && (
-        <div className="z-10 w-full max-w-2xl flex flex-col items-center animate-in fade-in duration-1000">
+        <div className="z-10 w-full max-w-2xl flex flex-col items-center custom-fade-in">
           <h1 className="text-7xl font-black text-pink-600 tracking-tighter mb-2 italic">달고나 게임</h1>
           <div className="w-full bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl mb-8">
             <h2 className="text-center text-xs font-bold tracking-[0.4em] uppercase text-zinc-500 mb-4">Survivor Ranking Top 10</h2>
@@ -325,7 +325,7 @@ const App: React.FC = () => {
       )}
 
       {gameState === GameState.PLAYING && (
-        <div className="z-10 flex flex-col items-center w-full max-w-md">
+        <div className="z-10 flex flex-col items-center w-full max-w-md custom-fade-in">
           <div className="w-full flex justify-between items-end mb-4">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Level</span>
@@ -352,7 +352,7 @@ const App: React.FC = () => {
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                {!isDrawing.current && (
                  <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-widest animate-bounce">
-                   Hold Any Mouse Button to Carve
+                   아무 마우스 버튼이나 눌러서 조각하세요
                  </div>
                )}
             </div>
@@ -362,24 +362,24 @@ const App: React.FC = () => {
       )}
 
       {(gameState === GameState.SUCCESS || gameState === GameState.FAILED || gameState === GameState.VICTORY) && (
-        <div className="z-10 flex flex-col items-center text-center animate-in zoom-in duration-300 max-w-md">
+        <div className="z-10 flex flex-col items-center text-center custom-zoom-in max-w-md">
           <div className={`text-8xl font-black mb-4 tracking-tighter italic ${gameState === GameState.FAILED ? 'text-red-700' : 'text-green-500'}`}>
             {gameState === GameState.FAILED ? 'ELIMINATED' : 'PASSED'}
           </div>
           <div className="p-8 bg-zinc-900/90 rounded-3xl border border-white/10 mb-8 min-h-[140px] flex flex-col items-center justify-center shadow-2xl">
-            {isLoading ? <div className="animate-pulse text-pink-600 font-black">분석 중...</div> : <p className="text-lg text-zinc-300 italic">"{feedback}"</p>}
+            {isLoading ? <div className="animate-pulse text-pink-600 font-black text-xl">데이터 분석 중...</div> : <p className="text-lg text-zinc-300 italic">"{feedback}"</p>}
           </div>
           <div className="w-full space-y-4">
             {gameState === GameState.SUCCESS && (
-              <button onPointerDown={()=>handleLevelStart(currentLevel+1)} className="w-full py-5 bg-white text-zinc-950 text-xl font-black rounded-2xl uppercase italic">Next Level</button>
+              <button onPointerDown={()=>handleLevelStart(currentLevel+1)} className="w-full py-5 bg-white text-zinc-950 text-xl font-black rounded-2xl uppercase italic hover:bg-zinc-200 transition-colors">다음 단계</button>
             )}
             {(gameState === GameState.FAILED || gameState === GameState.VICTORY) && (
               <div className="w-full flex flex-col space-y-4">
                 <input type="text" value={playerName} onChange={e=>setPlayerName(e.target.value.slice(0,10))} placeholder="당신의 이름을 입력하십시오" className="w-full bg-zinc-800 border border-white/10 p-4 rounded-2xl text-center text-xl font-bold focus:outline-none focus:border-pink-600"/>
-                <button onPointerDown={saveRanking} className="w-full py-5 bg-pink-600 text-white text-xl font-black rounded-2xl uppercase italic shadow-lg shadow-pink-600/20">명예의 전당 등록</button>
+                <button onPointerDown={saveRanking} className="w-full py-5 bg-pink-600 text-white text-xl font-black rounded-2xl uppercase italic shadow-lg shadow-pink-600/20 hover:bg-pink-500 transition-colors">명예의 전당 등록</button>
               </div>
             )}
-            <button onPointerDown={() => setGameState(GameState.START)} className="text-zinc-600 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">Main Menu</button>
+            <button onPointerDown={() => setGameState(GameState.START)} className="text-zinc-600 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">메인 메뉴로</button>
           </div>
         </div>
       )}
