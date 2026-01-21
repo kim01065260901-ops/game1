@@ -266,12 +266,12 @@ const App: React.FC = () => {
       
       {/* Hall of Fame Background Element */}
       <div className="fixed top-0 left-0 w-full h-full opacity-5 pointer-events-none flex flex-wrap gap-10 p-10 justify-center">
-        {Array.from({length:20}).map((_,i) => <div key={i} className="text-8xl font-black">DALGONA</div>)}
+        {Array.from({length:20}).map((_,i) => <div key={i} className="text-8xl font-black">달고나 게임</div>)}
       </div>
 
       {gameState === GameState.START && (
         <div className="z-10 w-full max-w-2xl flex flex-col items-center animate-in fade-in duration-1000">
-          <h1 className="text-7xl font-black text-pink-600 tracking-tighter mb-2 italic">HOF</h1>
+          <h1 className="text-7xl font-black text-pink-600 tracking-tighter mb-2 italic">달고나 게임</h1>
           <div className="w-full bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl mb-8">
             <h2 className="text-center text-xs font-bold tracking-[0.4em] uppercase text-zinc-500 mb-4">Survivor Ranking Top 10</h2>
             <div className="space-y-2">
