@@ -37,22 +37,36 @@ const App: React.FC = () => {
   const timerInterval = useRef<number | null>(null);
 
   const currentLevelConfig = LEVEL_CONFIGS[currentLevel - 1];
+  const currentCoverage = pointsToCover.current.length > 0 
+    ? Math.round((coveredIndices.current.size / pointsToCover.current.length) * 100) 
+    : 0;
 
-  const playSound = (freq: number, dur: number, type: OscillatorType = 'sawtooth') => {
+  const playSound = (freq: number, dur: number, type: OscillatorType = 'sawtooth', volume = 0.05) => {
     try {
-      if (!audioContext.current) audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (!audioContext.current) {
+        audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioContext.current.state === 'suspended') {
+        audioContext.current.resume();
+      }
       const osc = audioContext.current.createOscillator();
       const gain = audioContext.current.createGain();
       osc.type = type;
       osc.frequency.setValueAtTime(freq, audioContext.current.currentTime);
       osc.frequency.exponentialRampToValueAtTime(10, audioContext.current.currentTime + dur);
-      gain.gain.setValueAtTime(0.05, audioContext.current.currentTime);
+      gain.gain.setValueAtTime(volume, audioContext.current.currentTime);
       gain.gain.linearRampToValueAtTime(0, audioContext.current.currentTime + dur);
       osc.connect(gain);
       gain.connect(audioContext.current.destination);
       osc.start();
       osc.stop(audioContext.current.currentTime + dur);
     } catch (e) { console.warn("Audio play failed", e); }
+  };
+
+  const playMelody = (notes: number[]) => {
+    notes.forEach((note, i) => {
+      setTimeout(() => playSound(note, 0.3, 'sine', 0.1), i * 150);
+    });
   };
 
   useEffect(() => {
@@ -69,7 +83,7 @@ const App: React.FC = () => {
             handleGameOver(false);
             return 0;
           }
-          if (prev <= 3) playSound(200, 0.1, 'sine');
+          if (prev <= 4) playSound(300, 0.1, 'sine', 0.1);
           return prev - 1;
         });
         setTotalTimeTaken(prev => prev + 1);
@@ -187,6 +201,13 @@ const App: React.FC = () => {
   }, []);
 
   const handleLevelStart = (level: number) => {
+    // 활성화 로직
+    if (!audioContext.current) {
+        audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    audioContext.current.resume();
+    playMelody([440, 554, 659]); // 시작 알림음
+
     setCurrentLevel(level);
     setGameState(GameState.PLAYING);
     setStress(0);
@@ -212,10 +233,10 @@ const App: React.FC = () => {
         if (next >= 100) handleGameOver(false);
         return next;
       });
-      playSound(150, 0.05);
+      playSound(120, 0.08, 'sawtooth', 0.1); // 실수음
     } else {
       setStress(prev => Math.max(0, prev - 0.1));
-      playSound(600 + coveredIndices.current.size, 0.02);
+      playSound(500 + coveredIndices.current.size * 2, 0.03, 'square', 0.03); // 조각음
       if (coveredIndices.current.size / pointsToCover.current.length >= currentLevelConfig.requiredCoverage) {
         handleGameOver(true);
       }
@@ -224,6 +245,13 @@ const App: React.FC = () => {
 
   const handleGameOver = async (success: boolean) => {
     if (gameState !== GameState.PLAYING) return;
+    
+    if (success) {
+        playMelody([523, 659, 783, 1046]); // 성공 멜로디
+    } else {
+        playSound(80, 0.8, 'sawtooth', 0.2); // 실패 효과음
+    }
+
     setGameState(success ? (currentLevel === 10 ? GameState.VICTORY : GameState.SUCCESS) : GameState.FAILED);
     setIsLoading(true);
     const snap = canvasRef.current?.toDataURL();
@@ -352,12 +380,24 @@ const App: React.FC = () => {
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                {!isDrawing.current && (
                  <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/20 text-[10px] font-black uppercase tracking-widest animate-bounce">
-                   아무 마우스 버튼이나 눌러서 조각하세요
+                   아무 버튼이나 눌러서 조각하세요
                  </div>
                )}
             </div>
           </div>
-          <p className="mt-6 text-zinc-500 text-xs font-bold uppercase tracking-[0.5em]">{currentLevelConfig.shape}</p>
+          <div className="mt-4 flex flex-col items-center space-y-1">
+            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.5em]">{currentLevelConfig.shape}</p>
+            <div className="flex space-x-8">
+                <div className="flex flex-col items-center">
+                    <span className="text-[10px] text-zinc-600 uppercase font-bold tracking-tighter">진행도</span>
+                    <span className="text-2xl font-black text-green-500">{currentCoverage}%</span>
+                </div>
+                <div className="flex flex-col items-center">
+                    <span className="text-[10px] text-zinc-600 uppercase font-bold tracking-tighter">목표</span>
+                    <span className="text-2xl font-black text-pink-600">{Math.round(currentLevelConfig.requiredCoverage * 100)}%</span>
+                </div>
+            </div>
+          </div>
         </div>
       )}
 
